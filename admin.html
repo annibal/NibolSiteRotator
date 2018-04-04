@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Admin | SiteRotator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+
+    <script src="https://www.gstatic.com/firebasejs/4.12.1/firebase.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    
+</head>
+
+<body>
+    <div class="container">
+        <div id="main">
+            <button v-on:click="saveAll()" v-bind:adisabled="!hasAlterations" class="save-all">{{isSalvando?"Salvando...":"Salvar Tudo"}}</button>
+            <h1>SiteRotator Admin {{hasAlterations?"*":""}}</h1>
+            <p></p>
+            <hr />
+            <div class="sites-container">
+                <div class="site" v-for="(site, index) in sites">
+                    <div class="input-container url">
+                        <label v-bind:for="'iurl'+index">Url</label>
+                        <input type="text" v-bind:id="'iurl'+index" placeholder="url" v-on:input="ohnoAnInput()" v-model="site.url"/>
+                    </div>
+                    <div class="input-container time">
+                        <label v-bind:for="'time'+index">Tempo = <b>{{site.time | taime}}</b> </label>
+                        <input type="range" v-bind:id="'time'+index" min="1" max="240" step="1" v-on:input="ohnoAnInput()" v-model="site.time"/>
+                        <input type="number" v-bind:id="'timeother'+index" min="5" max="3600" v-on:input="ohnoAnInput()" v-model="site.time"/>
+                    </div>
+                    <!-- <div class="input-container checkbox-container">
+                        <input type="checkbox" v-bind:id="'reload'+index" v-on:input="ohnoAnInput()" v-model="site.reload" />
+                        <label v-on:click="ohnoAnInput()" v-bind:for="'reload'+index">Recarregar</label>
+                    </div> -->
+                    <!-- <div class="input-container checkbox-container">
+                        <input type="checkbox" v-bind:id="'dontkeep'+index" v-on:input="ohnoAnInput()" v-model="site.dontkeep"/>
+                        <label v-on:click="ohnoAnInput()" v-bind:for="'dontkeep'+index">Não Manter Aberto</label>
+                    </div> -->
+                    <button v-on:click="removeItem(index)" class="remove-item">Remover</button>
+                </div>
+                <button v-on:click="newItem()" class="new-item">Novo Site</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        app = new Vue({
+            el: "#main",
+            data: {
+                sites: [],
+                isSalvando:false,
+                hasAlterations:false,
+            },
+            methods: {
+                saveAll: async () => {
+                    if (app.isSalvando) return;
+                    app.isSalvando = true;
+                    await firebase.database().ref('siterotator/').set(app.sites)
+                    app.sites = []
+                    await app.listSites();
+                    app.isSalvando = false;
+                    app.hasAlterations = false;
+                },
+                ohnoAnInput:() => {
+                    app.hasAlterations = true;
+                },
+                removeItem: (index) => {
+                    app.sites.splice(index,1)
+                    app.hasAlterations = true;
+                },
+                newItem: () => {
+                    app.sites.push({
+                        url:'',
+                        time:180,
+                        reload:true
+                    })
+                    app.hasAlterations = true;
+                },
+                listSites: async () => {
+                    await firebase.database().ref('siterotator/')
+                        .once("value")
+                        .then(x => x.val())
+                        .then(x => Object.keys(x).map(key => x[key]))
+                        .then(x => app.sites = x)
+                }
+            },
+            filters: {
+                taime:function(value) {
+                    if (value > 60) {
+                        var min = (value/60).toFixed(0)
+                        var sec = value%60;
+                        return min+" min, "+sec+" sec"
+                    }
+                    return value+" sec"
+                }
+            }
+        })
+
+        // Initialize Firebase
+        var config = {
+            apiKey: "AIzaSyAPh_q2oXSmRU6j6WzRCvnZKvOztlgTwxw",
+            authDomain: "beroska-74385.firebaseapp.com",
+            databaseURL: "https://beroska-74385.firebaseio.com",
+            projectId: "beroska-74385",
+            storageBucket: "beroska-74385.appspot.com",
+            messagingSenderId: "1055853218906"
+        };
+        firebase.initializeApp(config);
+
+        
+
+        app.listSites();
+
+    </script>
+
+</body>
+
+</html>

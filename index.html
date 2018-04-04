@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Index | SiteRotator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+
+    <script src="https://www.gstatic.com/firebasejs/4.12.1/firebase.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+</head>
+<body>
+
+    <!-- <iframe src="" id="oe" frameborder="0"></iframe> -->
+    
+    <h1>Site Rotator</h1>
+    <hr />
+    <div class="container">
+        <div id="main">
+            <h2> Current site: {{currentSite.url}}</h2>
+            <!-- <h2>Will Reload: <b>{{currentSite.reload}}</b></h2> -->
+            <h2> Time: {{currentSite.time - chargeTime/1000 | number}} seconds out of {{currentSite.time}} seconds</h2>
+            <button v-on:click="toggleState()">{{playing?"set Pause":"set Play"}}</button>
+            <button v-on:click="toggleDry()">{{dry?"set Active":"set Dry"}}</button>
+
+            <div id="log">
+                <div>"Active" means it opens windows, "Dry" means only logs actions. "Play" and "Pause" will actually stop the timer.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Firebase
+        var config = {
+            apiKey: "AIzaSyAPh_q2oXSmRU6j6WzRCvnZKvOztlgTwxw",
+            authDomain: "beroska-74385.firebaseapp.com",
+            databaseURL: "https://beroska-74385.firebaseio.com",
+            projectId: "beroska-74385",
+            storageBucket: "beroska-74385.appspot.com",
+            messagingSenderId: "1055853218906"
+        };
+        firebase.initializeApp(config);
+
+        var currentSiteWindow;
+
+        var app = new Vue({
+            el:"#main",
+            data: {
+                sites:[],
+                playing:false,
+                dry:false,
+                currentSite:{},
+                chargeTime: 0,
+            },
+            methods: {
+                toggleState:() => {
+                    app.playing = !app.playing;
+                },
+                toggleDry:() => {
+                    app.dry = !app.dry;
+                }
+            },
+            filters:{
+                number:function(val) {
+                    if (val == null) return '';
+                    return parseFloat(val).toFixed(0)
+                }
+            }
+        })
+
+        var sites = []
+        
+        firebase.database().ref('siterotator/')
+            .on('value', parseIncomingSites);
+
+        function parseIncomingSites(siteData) {
+            
+            siteData = siteData.val();
+            siteData = Object.keys(siteData).map(key => siteData[key]).map(site => {site.time = parseInt(site.time); return site})
+            start(siteData);
+        }
+
+        function log(str) {
+            var div = document.createElement("div");
+            div.innerText = str
+            document.getElementById("log").appendChild(div)
+        }
+
+        var lastTime = new Date().getTime();
+        var currentSiteIndex = 0;
+        var currentSite = sites
+        var loopId;
+
+        function setSite() {
+            if (currentSite.reload) {
+                if (currentSiteWindow == null) {
+                    log("Opening reloaders windown")
+                    currentSiteWindow = window.open(currentSite.url);
+                }
+                if (currentSiteWindow != null) {
+                    log("Setting reloadable to " + currentSite.url)
+                    currentSiteWindow.location.href = currentSite.url;
+                }
+            } else {
+                 if (currentSite.window == null) {
+                    log("First time opening " + currentSite.url)
+                    if (!app.dry) sites[currentSiteIndex].window = window.open(currentSite.url)
+                }
+                if (currentSite.window != null) {
+                    log("Focusing on " + currentSite.url)
+                    if (!app.dry) currentSite.window.focus();
+                }
+            }
+        }
+
+        function step() {
+            var deltaTime = new Date().getTime()- lastTime;
+            lastTime = new Date().getTime();
+            if (app.playing) app.chargeTime += deltaTime;
+
+            if (app.chargeTime > currentSite.time*1000) {
+                app.chargeTime -= currentSite.time*1000;
+                currentSiteIndex++;
+
+                if (currentSiteIndex >= sites.length) {
+                    currentSiteIndex = 0;
+                }
+
+                currentSite = sites[currentSiteIndex];
+                app.currentSite = currentSite
+                setSite();
+            }
+        }
+        function start(_sites) {
+            log("Start")
+            sites = _sites;
+            app.sites = sites
+            app.playing = true;
+            currentSiteIndex = 0;
+            currentSite = sites[currentSiteIndex];
+            app.currentSite = currentSite;
+            setSite();
+            if (loopId != null) {
+                clearInterval(loopId)
+            }
+            loopId = setInterval(step,100);
+        }
+
+    </script>
+</body>
+</html>
